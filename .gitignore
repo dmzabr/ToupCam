@@ -1,0 +1,9 @@
+/camera_environment
+check.txt
+dima.py
+toupcam.dll
+imgs/
+__pycache__/
+libtoupcam.dylib
+__pycache__/simplest.cpython-311.pyc
+__pycache__/toupcam.cpython-311.pyc
