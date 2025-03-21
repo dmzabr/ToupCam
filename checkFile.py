@@ -28,6 +28,10 @@ def file_changed():
         lines = f.readlines()
     print(lines)
 
+
+    if len(lines) != 4:
+        print("Количество переменных lines:", len(lines))
+        lines = ['0\n', '10000\n', '100\n', 'image']
     # Если первая строка равна 1, делаем фото
     if int(lines[0][0]) == 1:
         fileName = lines[3]

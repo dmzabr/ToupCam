@@ -14,7 +14,7 @@ class App:
             print(f"Файл {'check.txt'} не найден. Создаю файл и заполняю данными...")
             # Открываем файл для записи и заполняем его данными
             with open('check.txt', "w") as file:
-                data = ['0\n', '10000\n', '100']
+                data = ['0\n', '10000\n', '100\n', 'image']
                 file.writelines(data)
                 
         self.hcam = None
