@@ -36,6 +36,7 @@ def file_changed():
     if int(lines[0][0]) == 1:
         fileName = lines[3]
         # app.take_photo()
+        app.saveTxt(fileName)
         app.takePhoto(fileName)
         # process = multiprocessing.Process(target=app.save_txt)
         # process.start()
