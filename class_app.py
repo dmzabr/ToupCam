@@ -3,38 +3,30 @@ import numpy as np
 import pygame
 from PIL import Image
 import time
-import os
-import re
+import funcs
 import copy
-
-# toupcam.TOUPCAM_OPTION_RGB = 4
-# toupcam.TOUPCAM_OPTION_BITDEPTH = 1
-# toupcam.TOUPCAM_OPTION_RAW = 1
-# TOUPCAM_OPTION_BINNING = 0x02
-
+import os
+import cv2
 
 
 class App:
     def __init__(self):
-        if not os.path.exists('check.txt'):
-            print(f"Файл {'check.txt'} не найден. Создаю файл и заполняю данными...")
-            # Открываем файл для записи и заполняем его данными
-            with open('check.txt', "w") as file:
-                data = ['0\n', '10000\n', '100\n', 'image']
-                file.writelines(data)
-                
         self.hcam = None
         self.buf = None
         self.total = 0
         self.img = None
-        self.expotime = int(open('check.txt').readlines()[1].strip())
-        self.gain = int(open('check.txt').readlines()[2].strip())
+        # self.expotime = 10000
+        # self.gain = 100
         self.last_time = time.time()
         self.frame_count = 0
         self.screen = None
         self.running = True
         self.width = 100
         self.height = 100
+        
+        res = funcs.readFile(os.path.abspath("check.txt"), 1)
+        self.expotime = res[0]
+        self.gain = res[1]
 
     @staticmethod
     def cameraCallback(nEvent, ctx):
@@ -46,7 +38,7 @@ class App:
             try:
                 # self.hcam.put_Option(toupcam.TOUPCAM_OPTION_BITDEPTH, 1)
                 # self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RAW, 1)
-                self.hcam.PullImageV4(self.buf, 0, 24, 0, None)
+                self.hcam.PullImageV4(self.buf, 0, 0, 0, None)
                 self.total += 1
                 
                 self.set_variables()
@@ -55,14 +47,11 @@ class App:
                 
                 # print(self.hcam.get_PixelFormatSupport(0xff))
                 
-
-                
-                
                 # print("Разрешение:", self.width, self.height)
 
-                self.img = Image.frombuffer("RGB", (self.width, self.height), self.buf, "raw", "RGB", 0, 1)
+                # self.img = Image.frombuffer("RGB", (self.width, self.height), self.buf, "raw", "RGB", 0, 1).transpose(Image.FLIP_LEFT_RIGHT)
                 # print(self.buf[0], self.buf[1], self.buf[2])
-                #self.img = np.frombuffer(self.buf, dtype=np.uint8).reshape((self.height, self.width, 3))
+                self.img = np.frombuffer(self.buf, dtype=np.uint16).reshape((self.height, self.width, 3))
                 # print(toupcam.TOUPCAM_FLAG_RAW16)
                 # print(toupcam.TOUPCAM_OPTION_MAX_PRECISE_FRAMERATE)
 
@@ -79,25 +68,26 @@ class App:
 
     def update_image(self):
         if self.img is not None and self.screen is not None:
-            # Получаем размер экрана
             w, h = self.screen.get_size()
 
             if self.total % 50 == 0:
                 print(f"Разрешение: {w}x{h}")
 
-            # Создаем копию изображения, чтобы иметь доступ к его данным
-            img_copy = copy.copy(self.img)  # Создаем копию изображения
-            
+            # Ресайзим изображение с помощью OpenCV (RGB, 10-бит)
+            resized = cv2.resize(self.img, (w, h), interpolation=cv2.INTER_NEAREST)
 
-            # Ресайзим изображение
-            pic = img_copy.resize((w, h), Image.Resampling.NEAREST)
+            # Ограничим до 1023 и переведем в 8-бит
+            resized = np.clip(resized, 0, 1023)
+            resized_8bit = ((resized / 1023.0) * 255).astype(np.uint8)
 
-            # Преобразуем изображение в байты для pygame
-            img_surface = pygame.image.fromstring(pic.tobytes(), pic.size, pic.mode)
+            # Создаем PIL.Image из массива RGB
+            img_pil = Image.fromarray(resized_8bit, mode='RGB')
+
+            # Конвертируем в pygame.Surface
+            img_surface = pygame.image.fromstring(img_pil.tobytes(), img_pil.size, img_pil.mode)
             self.screen.blit(img_surface, (0, 0))
 
             
-
     def start_gui(self):
         pygame.init()
         flags = pygame.RESIZABLE 
@@ -135,13 +125,13 @@ class App:
             if self.hcam:
                 try:
                     self.width, self.height = self.hcam.get_Size()
-                    bufsize = toupcam.TDIBWIDTHBYTES(24 * self.width) * self.height
+                    # bufsize = toupcam.TDIBWIDTHBYTES(24 * self.width) * self.height
                     # bufsize = self.width * self.height * 3 * 2
-                    # bufsize = 12582912
+                    bufsize = self.height * self.width * 3 * 2
                     print(f'Image size: {self.width} x {self.height}, bufsize = {bufsize}')
                     self.buf = bytes(bufsize)
                     if self.buf:
-                        # self.putOption()
+                        self.putOption()
                         
                         self.hcam.StartPullModeWithCallback(self.cameraCallback, self)
                         print('Camera started successfully')
@@ -157,8 +147,11 @@ class App:
     def putOption(self):
         # toupcam.TOUPCAM_OPTION_RGB = 4
         
-        self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RGB, 4)
+        # self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RGB, 4)
         self.hcam.put_Option(toupcam.TOUPCAM_OPTION_BITDEPTH, 1)
+        # self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RAW, 1)
+        self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RGB, 1)
+        # self.hcam.put_Option(toupcam.TOUPCAM_OPTION_CG, 1)
 
 
     def close_camera(self):
@@ -192,42 +185,10 @@ class App:
             print(f'FPS: {fps:.2f}')
             self.frame_count = 0
             self.last_time = current_time
-    
-    def takePhoto(self, fileName):
-        if self.img.any():
-            im = Image.fromarray(self.img)
-            im.save(f'imgs/{fileName}.tiff')
-            print(f'Image saved: imgs/image_{self.total}.tiff')
-        else:
-            print("Waiting for a valid image...")
-    
-    def saveTxt(self, fileName):
-        
-        image = self.img
-        image_array = np.array(image)
-        print("Шейп:", image_array.shape)
-        fileName = self.sanitize_filename(fileName)
-        image_name = f'{fileName}.txt'
-        
-        
-        with open(image_name, "w") as f:
-            f.write("[\n")
-            for row in image_array:
-                f.write("  " + str(row.tolist()) + ",\n")
-            f.write("]\n")
-        
-        print("Успешный успех")
-        
-    def sanitize_filename(self, filename):
-        replacement = '_'
-        # Запрещенные символы для имен файлов в Windows и Linux
-        forbidden_chars = r'[<>:"/\\|?*\x00-\x1F]'
-        return re.sub(forbidden_chars, replacement, filename)
+
 
 app = App()
 
 def start_camera():
-    
-
     app.run()
     app.start_gui()
