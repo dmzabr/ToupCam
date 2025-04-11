@@ -4,6 +4,8 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from class_app import app
 import time
+import funcs
+
 
 # Указываем путь к файлу, за которым будем следить
 file_path = os.path.abspath("check.txt")
@@ -22,28 +24,10 @@ def file_changed():
     
     # Обновляем время последнего изменения
     last_modified_time = current_modified_time
-        
-    # Читаем все строки из файла
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
-    print(lines)
-
-    # Если первая строка равна 1, делаем фото
-    if int(lines[0][0]) == 1:
-        fileName = lines[3]
-        # app.take_photo()
-        app.takePhoto(fileName)
-        # process = multiprocessing.Process(target=app.save_txt)
-        # process.start()
-        lines[0] = '0\n'
-        print("Сделано фото")
-
-    # Обновляем значение экспозиции
-    app.expotime = int(lines[1])
-    app.gain = int(lines[2])
-
-    # Записываем измененные строки обратно в файл
-    saveFile(lines)
+    
+    res = funcs.readFile(file_path, app.img)
+    app.expotime = res[0]
+    app.gain = res[1]
 
     # Даем немного времени системе обновить время изменения файла
     time.sleep(0.1)

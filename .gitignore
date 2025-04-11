@@ -5,3 +5,5 @@ toupcam.dll
 imgs/
 __pycache__/
 libtoupcam.dylib
+requirements.txt
+output/
