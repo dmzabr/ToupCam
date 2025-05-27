@@ -1,82 +1,106 @@
 import time
-# from class_app import app
 import os
 import numpy as np
 import re
-from PIL import Image
-import tifffile
-import imageio.v3 as iio
 import cv2
+from threading import Thread
+from multiprocessing import Process
+import json
 
 
+def readFile(file_path, img, bits):
+    # Если файл не существует, создаём его
+    if not os.path.exists(file_path):
+        with open(file_path, 'w') as f:
+            pass  # Просто создаём пустой файл
 
-file_path = os.path.abspath("check.txt")
-
-def readFile(file_path, img):
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
-    # print(lines)
+    with open(file_path, "r") as read_file:
+        data = json.load(read_file)
     
-    if len(lines) != 4:
-        print("Количество переменных lines:", len(lines))
-        lines = ['0\n', '10000\n', '100\n', 'image']
     # Если первая строка равна 1, делаем фото
-    if int(lines[0][0]) == 1:
-        fileName = lines[3]
-        # app.take_photo()
-        # saveTxt(fileName)
-        takePhoto(fileName, img)
-        # saveTxt(fileName, img)
-        # process = multiprocessing.Process(target=app.save_txt)
-        # process.start()
-        lines[0] = '0\n'
-        print("Сделано фото")
+    try:
+        if int(data['isPhoto']) == 1:
+            
+            # print(lines)
+            fileName = data['fileName']
+            try:
+                takePhoto(fileName, img, bits)
+                saveTxt(fileName, img)
+                    
+                # pPhoto = Thread(target=takePhoto, args=(fileName, img, bits))
+                # pTxt = Thread(target=saveTxt, args=(fileName, img))
 
+                # pTxt.start()
+                # pPhoto.start()
+
+                print("Сделано фото")
+                data['isPhoto'] = '0'
+            except:
+                print("Ошибка фотографии")
+                data['isPhoto'] = '0'
+    except:
+        print('Ошибка: значение в поле "фото" должно быть 0 или 1')
+        data['isPhoto'] = '0'
+            
+        # pTxt.join()
+        # pPhoto.join()
+        
     # Обновляем значение экспозиции
     try:
-        expotime = int(lines[1])
+        expotime = int(data['exposition'])
     except:
+        print("Ошибка: Значение выдержки не валидно")
         expotime = 10000
-        lines[1] = expotime
+        data['exposition'] = f'{expotime}'
         
     try:
-        gain = int(lines[2])
+        gain = int(data['gain'])
     except:
+        print("Ошибка: Значение усиления не валидно.")
         gain = 100
-        lines[2] = gain
+        data['gain'] = f'{gain}'
+        
+    try:
+        binning = int(data['binning'])
+        if binning < 1 or binning > 8:
+            print("Ошибка: Значение биннинга должно быть от 0 до 8.")
+            binning = 1
+            data['binning'] = f'{binning}'
+    except:
+        print("Ошибка: Значение биннинга не валидно.")
+        binning = 1
+        data['binning'] = f'{binning}'
 
     # Записываем измененные строки обратно в файл
-    saveFile(lines, file_path)
         
-    print(expotime, gain)
-    return([expotime, gain])
+    saveFile(data, file_path)
+    return(data)
 
-        
-def saveFile(lines, file_path):
+def saveFile(data, file_path):
     try:
-        with open(file_path, 'w') as f:
-            f.writelines(lines)
+        with open(file_path, "w") as write_file:
+            json.dump(data, write_file)
     except:
-        time.sleep(0,1)
-        saveFile(lines)
+        time.sleep(0.1)
+        with open(file_path, "w") as write_file:
+            json.dump(data, write_file)
         
-def takePhoto(fileName, img):
+def takePhoto(fileName, img, bits):
     # Преобразуем изображение из RGB в BGR
-    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    
+    # Сделать 8 битное изображение
+    img_normalized_16bit = np.clip(img * (65535 / (2 ** bits + 2)), 0, 65535).astype(np.uint16)
 
-    # Нормализуем изображение в 16 бит
-    img_normalized_16bit = np.clip(img_bgr * (65535 / 1024), 0, 65535).astype(np.uint16)
 
     # Сохраняем изображение
     cv2.imwrite(f'imgs/{fileName}.tiff', img_normalized_16bit)
 
 def saveTxt(fileName, img):
-    
-    image = img
-    image_array = np.array(image)
-    print("Шейп:", image_array.shape)
-    fileName = sanitize_filename(fileName)
-    image_name = f'{fileName}.txt'
+    image_array = np.array(img)
+    # print("Шейп:", image_array.shape)
+    fileName = sanitizeFilename(fileName)
+    image_name = f'txts/{fileName}.txt'
     
     
     with open(image_name, "w") as f:
@@ -85,9 +109,9 @@ def saveTxt(fileName, img):
             f.write("  " + str(row.tolist()) + ",\n")
         f.write("]\n")
     
-    print("Успешный успех")
+    print("Текстовый файл сохранен")
     
-def sanitize_filename(filename):
+def sanitizeFilename(filename):
     replacement = '_'
     # Запрещенные символы для имен файлов в Windows и Linux
     forbidden_chars = r'[<>:"/\\|?*\x00-\x1F]'

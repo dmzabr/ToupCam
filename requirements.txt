@@ -1,0 +1,7 @@
+imageio==2.37.0
+numpy==2.2.4
+opencv-python==4.11.0.86
+pillow==11.2.1
+pygame==2.6.1
+tifffile==2025.3.30
+watchdog==6.0.0

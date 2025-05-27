@@ -1,9 +1,11 @@
-camera_environment/
+venv/
 check.txt
 dima.py
 toupcam.dll
 imgs/
 __pycache__/
 libtoupcam.dylib
-requirements.txt
 output/
+valid_photo.py
+txts/
+библио/
