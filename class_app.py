@@ -55,16 +55,21 @@ class App:
             except toupcam.HRESULTException as ex:
                 print(f'Pull image failed, hr=0x{ex.hr & 0xffffffff:x}')
 
+
     def start_gui(self):
-        # Получаем размер экрана
-        monitor_width, monitor_height = pyautogui.size()
-        aspect_ratio = self.width / self.height
+        monitor_width, _ = pyautogui.size()
+        aspect_ratio = int(self.width) / int(self.height)
+        width_with_monitor = int(monitor_width / 2)
+        heigth_with_monitor = int(width_with_monitor / aspect_ratio)
+
+        # Сдвигаем окно немного вниз (например, на 50 пикселей)
+        offset_y = 50
+        os.environ['SDL_VIDEO_WINDOW_POS'] = f"{width_with_monitor},{offset_y}"
 
         pygame.init()
-
-        # Полный экран без рамок
-        flags = pygame.NOFRAME | pygame.FULLSCREEN
-        self.screen = pygame.display.set_mode((monitor_width, monitor_height), flags)
+        flags = pygame.RESIZABLE
+        
+        self.screen = pygame.display.set_mode((width_with_monitor, heigth_with_monitor), flags)
         pygame.display.set_caption('Просмотр изображения')
 
         try:
@@ -74,51 +79,37 @@ class App:
                         self.running = False
                         self.close_camera()
                         print('Program is exiting...')
-
-                # Обновление кадра
-                self.update_image()
-
+                    
+                    elif event.type == pygame.VIDEORESIZE:
+                        new_width, new_height = event.size
+                        if new_width > new_height:
+                            new_height = int(new_width / aspect_ratio)
+                        else:
+                            new_width = int(new_height * aspect_ratio)
+                        self.screen = pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
                 pygame.display.flip()
-
         except Exception as e:
             print(f"Error: {e}")
 
 
+
     def update_image(self):
         if self.img is not None and self.screen is not None:
-            screen_w, screen_h = self.screen.get_size()
-            img_h, img_w, _ = self.img.shape
-            img_aspect = img_w / img_h
-            screen_aspect = screen_w / screen_h
+            w, h = self.screen.get_size()
 
-            # Определяем масштаб
-            if img_aspect > screen_aspect:
-                # Ограничение по ширине
-                new_w = screen_w
-                new_h = int(screen_w / img_aspect)
-            else:
-                # Ограничение по высоте
-                new_h = screen_h
-                new_w = int(screen_h * img_aspect)
-
-            # Ресайзим картинку
-            resized = cv2.resize(self.img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+            # Ресайзим изображение с помощью OpenCV (RGB, 10-бит)
+            resized = cv2.resize(self.img, (w, h), interpolation=cv2.INTER_NEAREST)
 
             # Ограничим до 1023 и переведем в 8-бит
-            resized = np.clip(resized, 0, 2 ** self.maxBit)
+            resized = np.clip(resized, 0, 2 ** (self.maxBit))
             resized_8bit = ((resized / float(2 ** self.maxBit)) * 255).astype(np.uint8)
 
-            # Конвертируем в PIL.Image
+            # Создаем PIL.Image из массива RGB
             img_pil = Image.fromarray(resized_8bit, mode='RGB')
+
+            # Конвертируем в pygame.Surface
             img_surface = pygame.image.fromstring(img_pil.tobytes(), img_pil.size, img_pil.mode)
-
-            # Очистка экрана чёрным
-            self.screen.fill((0, 0, 0))
-
-            # Центрируем картинку
-            x = (screen_w - new_w) // 2
-            y = (screen_h - new_h) // 2
-            self.screen.blit(img_surface, (x, y))
+            self.screen.blit(img_surface, (0, 0))
 
 
     def run(self):
@@ -218,5 +209,12 @@ class App:
 app = App()
 
 def start_camera():
-    app.run()
-    app.start_gui()
+    try:
+        app.run()
+    except:
+        print("Ошибка запуска приложения")
+    try:
+        app.start_gui()
+        
+    except:
+        print("Ошибка старта интерфейса")
