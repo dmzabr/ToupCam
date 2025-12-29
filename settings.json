@@ -1,1 +1,7 @@
-{"fileName": "labubu12bit", "isPhoto": "0", "exposition": 50000, "gain": 100, "binning": 1}
+{
+    "fileName": "photoName", 
+    "isPhoto": "0", 
+    "exposition": 10000, 
+    "gain": 100, 
+    "binning": 1
+}

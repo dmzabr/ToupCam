@@ -88,6 +88,12 @@ def saveFile(data, file_path):
             json.dump(data, write_file)
         
 def takePhoto(fileName, img, bits):
+    if (f"{type(img)}" == "<class 'NoneType'>"):
+        print("Скип картинки, тип НонТип", f"{type(img)}", "<class 'NoneType'>")
+        return
+    
+    print("Не скип картинки, тип НонТип", f"{type(img)}", "<class 'NoneType'>")
+
     # Преобразуем изображение из RGB в BGR
     # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     
@@ -101,6 +107,9 @@ def takePhoto(fileName, img, bits):
 
 
 def saveTxt(fileName, img, bits):
+    
+    if (f"{type(img)}" == "<class 'NoneType'>"):
+        return
     # нормализация в 16-бит
     txt_normalized_16bit = np.clip(img * (65535 / (2 ** bits - 1)), 0, 65535).astype(np.uint16)
 
@@ -132,6 +141,10 @@ def saveTxt(fileName, img, bits):
     print("Текстовый файл сохранен")
     
 def saveRaw(rawName, img, bits):
+    
+    if (f"{type(img)}" == "<class 'NoneType'>"):
+        return
+    
      # нормализация в 16-бит
     txt_normalized_16bit = np.clip(img * (65535 / (2 ** bits - 1)), 0, 65535).astype(np.uint16)
 
@@ -151,7 +164,7 @@ def saveRaw(rawName, img, bits):
     flat = np.hstack((param, flat)).astype(np.uint16)
     print(f"Добавлены 3 значения в начало:  {type(flat)}")
     
-    print(flat[0], flat[1], flat[2], flat[3], flat[4])
+    #  print(flat[0], flat[1], flat[2], flat[3], flat[4])
     
     flat.tofile(raw_name)
 
@@ -207,16 +220,23 @@ def sanitizeFilename(filename):
     forbidden_chars = r'[<>:"/\\|?*\x00-\x1F]'
     return re.sub(forbidden_chars, replacement, filename)
 
+def makeDefaultSettings(file_path):
+    with open(file_path, 'w') as f:
+            pass  # Просто создаём пустой файл
+            safeData = {"fileName": "photo_name", "isPhoto": "0", "exposition": 10000, "gain": 100, "binning": 1}
+            saveFile(safeData, file_path)
+
 def readFile(file_path, img, bits):
     # Если файл не существует, создаём его
     if not os.path.exists(file_path):
-        with open(file_path, 'w') as f:
-            pass  # Просто создаём пустой файл
-            safeData = {"fileName": "i am dima", "isPhoto": "0", "exposition": 1000, "gain": 100, "binning": 1}
-            saveFile(safeData, file_path)
-
-    with open(file_path, "r") as read_file:
-        data = json.load(read_file)
+        makeDefaultSettings(file_path)
+        
+    try:
+        with open(file_path, "r") as read_file:
+            data = json.load(read_file)
+    except:
+        print("ошибка чтения setting.json. Создание по новой со стандартными значениями...")
+        
     
     # Если первая строка равна 1, делаем фото
 
@@ -238,8 +258,6 @@ def readFile(file_path, img, bits):
         print("Сделано фото")
         data['isPhoto'] = '0'
 
-
-        
     # Обновляем значение экспозиции
     try:
         expotime = int(data['exposition'])

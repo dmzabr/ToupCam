@@ -6,21 +6,28 @@ import os
 from datetime import datetime
 
 if __name__ == '__main__':
-    # Создадим директорию для логов, если её нет
     os.makedirs("logs", exist_ok=True)
 
-    # Имя файла лога с датой (например: logs/app_2025-10-08.log)
-    log_path = os.path.join("logs", f"app_{datetime.now():%Y-%m-%d %H:%M:%S}.log")
+    # Имя файла (лучше не использовать двоеточия в имени)
+    log_path = os.path.join("logs", f"app_{datetime.now():%Y-%m-%d_%H-%M-%S}.log")
 
-    # Открываем файл и перенаправляем stdout/stderr туда
-    sys.stdout = open(log_path, "a", encoding="utf-8")
-    sys.stderr = sys.stdout
+    # Открываем файл в построчно-буферизованном режиме
+    log_file = open(log_path, "a", encoding="utf-8", buffering=1)
 
-    print(f"\n[{datetime.now():%Y-%m-%d %H:%M:%S}] --- App started ---")
+    # Перенаправляем stdout/stderr
+    sys.stdout = log_file
+    sys.stderr = log_file
+
+    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] --- App started ---", flush=True)
 
     watcher_thread = Thread(target=watch_file, daemon=True)
     watcher_thread.start()
 
-
-    start_camera()
-
+    try:
+        start_camera()
+    except Exception as e:
+        print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] ERROR: {e}", flush=True)
+        raise
+    finally:
+        print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] --- App finished ---", flush=True)
+        log_file.close()

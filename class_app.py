@@ -10,7 +10,7 @@ import random
 import json
 import pyautogui
 import os
-
+import sys
 
 class App:
     def __init__(self):
@@ -91,26 +91,23 @@ class App:
         except Exception as e:
             print(f"Error: {e}")
 
-
-
     def update_image(self):
         if self.img is not None and self.screen is not None:
             w, h = self.screen.get_size()
 
-            # Ресайзим изображение с помощью OpenCV (RGB, 10-бит)
             resized = cv2.resize(self.img, (w, h), interpolation=cv2.INTER_NEAREST)
-
-            # Ограничим до 1023 и переведем в 8-бит
             resized = np.clip(resized, 0, 2 ** (self.maxBit))
             resized_8bit = ((resized / float(2 ** self.maxBit)) * 255).astype(np.uint8)
 
-            # Создаем PIL.Image из массива RGB
-            img_pil = Image.fromarray(resized_8bit, mode='RGB')
+            # --- Меняем порядок каналов (пример: RGB -> BGR) ---
+            # resized_8bit = resized_8bit[..., ::-1]
+            # Или любой другой вариант:
+            # resized_8bit = resized_8bit[..., [1, 0, 2]]
+            # resized_8bit = resized_8bit[..., ::-1]
 
-            # Конвертируем в pygame.Surface
+            img_pil = Image.fromarray(resized_8bit, mode='RGB')
             img_surface = pygame.image.fromstring(img_pil.tobytes(), img_pil.size, img_pil.mode)
             self.screen.blit(img_surface, (0, 0))
-
 
     def run(self):
         a = toupcam.Toupcam.EnumV2()
@@ -121,21 +118,20 @@ class App:
                 try:
                     
                     self.width, self.height = self.hcam.get_FinalSize()
+                    self.width = int(self.width / self.binning)
+                    self.height = int(self.height / self.binning)
                     
                     self.maxBit = self.hcam.MaxBitDepth()
                     # self.maxBit = 8
                     self.putOption()
                     
-                    
-            
                     # print("Final size -", self.width, self.height)
                     # print("Максимальная битность -", self.maxBit)
 
                     if self.maxBit <=8:
                         bufsize = int(self.height * self.width * 3)
                     else:
-                        bufsize = int(self.height * self.width * 3 * 2)
-                        
+                        bufsize = int(self.height * self.width * 3 * 2)                        
                     print(f'Image size: {self.width} x {self.height}, bufsize = {bufsize}')
                     self.buf = bytes(bufsize)
                     if self.buf:
@@ -153,35 +149,24 @@ class App:
     def putOption(self):
         if self.maxBit <= 8: 
             self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RAW, 0)
-            self.hcam.put_Option(toupcam.TOUPCAM_OPTION_BINNING, self.binning)
         else:
             self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RGB, 1)
             self.hcam.put_Option(toupcam.TOUPCAM_OPTION_BITDEPTH, 1)
             self.hcam.put_Option(toupcam.TOUPCAM_OPTION_RAW, 0)
-            self.hcam.put_Option(toupcam.TOUPCAM_OPTION_BINNING, self.binning)
+            
+        self.hcam.put_Option(toupcam.TOUPCAM_OPTION_BINNING, self.binning)
             
         # print("Биннинг - ", self.binning)
         # self.hcam.put_Option(toupcam.TOUPCAM_OPTION_CG, 1)
         # print("put Option")
     
-    def takePhotoByKey(self):
-            # Теперь читаем файл
-        with open("check.txt", 'r', encoding='utf-8') as file:
-            lines = [line.strip() for line in file]
-        lines[0] = 1
-        lines[3] = random.randint(0, 10000)
-        
-        with open("check.txt", 'w', encoding='utf-8') as file:
-            for line in lines:
-                file.write(f"{line}\n")
-        
-        # funcs.takePhoto(random.randint(0, 10000), self.img, self.maxBit)
-            
     def close_camera(self):
         if self.hcam:
             self.hcam.Close()
             self.hcam.Stop()
             self.hcam = None
+            pygame.quit()
+            sys.exit()
 
     def set_variables(self):
         self.setExpoTime(self.expotime)
