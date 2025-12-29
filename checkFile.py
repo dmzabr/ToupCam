@@ -5,10 +5,11 @@ from watchdog.events import FileSystemEventHandler
 from class_app import app
 import time
 import funcs
+import json
 
 
 # Указываем путь к файлу, за которым будем следить
-file_path = os.path.abspath("check.txt")
+file_path = os.path.abspath("settings.json")
 last_modified_time = 0  # Переменная для хранения времени последнего изменения
 
 # Твоя функция, которая будет выполняться при изменении файла
@@ -25,21 +26,13 @@ def file_changed():
     # Обновляем время последнего изменения
     last_modified_time = current_modified_time
     
-    res = funcs.readFile(file_path, app.img)
-    app.expotime = res[0]
-    app.gain = res[1]
+    data = funcs.readFile(file_path, app.img, app.maxBit)
+    app.expotime = int(data['exposition'])
+    app.gain = int(data['gain'])
+    # app.binning = lines[4]
 
     # Даем немного времени системе обновить время изменения файла
-    time.sleep(0.1)
     last_modified_time = os.path.getmtime(file_path)  # Обновляем время еще раз
-    
-def saveFile(lines):
-    try:
-        with open(file_path, 'w') as f:
-            f.writelines(lines)
-    except:
-        time.sleep(0,1)
-        saveFile(lines)
 
 # Создаем обработчик событий
 class FileChangeHandler(FileSystemEventHandler):
@@ -57,6 +50,13 @@ def watch_file():
         print("Папка 'imgs' создана.")
     else:
         print("Папка 'imgs' уже существует.")
+        
+    folder_path = "txts"
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+        print("Папка 'txts' создана.")
+    else:
+        print("Папка 'txts' уже существует.")
         
     dir_to_watch = os.path.dirname(file_path)  # Берем папку, где лежит файл
     event_handler = FileChangeHandler()
